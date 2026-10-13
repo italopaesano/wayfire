@@ -1,0 +1,58 @@
+# ESPERIMENTO — non fa parte della CI del progetto.
+#
+# Scopo: dimostrare, prima che accada, che il job "Check code style with
+# uncrustify" di ci.yaml smettera' di funzionare quando l'etichetta
+# ubuntu-latest passera' a Ubuntu 26.04.
+#
+# Il motivo: quel job compila il fork di uncrustify di ammen99, che dichiara
+# cmake_minimum_required(VERSION 3.2) e non riceve commit dal luglio 2020.
+# CMake 4.0 ha rimosso il supporto per le dichiarazioni sotto la 3.5, e
+# l'invocazione `cmake ../` del job non ha alcuna protezione.
+#
+#   Ubuntu 24.04 (immagine attuale)  ->  cmake 3.28.3  ->  funziona
+#   Ubuntu 26.04 (immagine futura)   ->  cmake 4.2.3   ->  fallisce
+#
+# ubuntu-latest migra a Ubuntu 26 a partire dal 19 ottobre 2026, con
+# completamento previsto per il 19 novembre (actions/runner-images#14748).
+# La stessa issue indica di usare l'etichetta ubuntu-26.04 per provare in
+# anticipo: e' quello che facciamo qui.
+#
+# I due job sono IDENTICI tranne che per l'immagine: e' la sola variabile,
+# quindi la differenza di esito non puo' dipendere da altro.
+#
+# Si fermano dopo la compilazione di uncrustify. Cio' che va dimostrato e'
+# che uncrustify non si costruisce, non che il controllo di stile segnali
+# violazioni: proseguire introdurrebbe un motivo di fallimento estraneo.
+
+name: prova-cmake4
+
+on:
+  push:
+    branches:
+      - 'prova/cmake4-ci'
+  workflow_dispatch:
+
+jobs:
+  controllo-ubuntu-2404:
+    name: "Controllo — uncrustify su Ubuntu 24.04 (atteso: compila)"
+    runs-on: ubuntu-24.04
+    steps:
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y git cmake gcc make
+      - name: Versione di cmake effettivamente installata
+        run: cmake --version
+      - run: git clone http://github.com/ammen99/uncrustify
+      - name: Compila uncrustify come fa ci.yaml
+        run: cd uncrustify && mkdir build && cd build && cmake ../ && make && cd ../../
+
+  prova-ubuntu-2604:
+    name: "Prova — uncrustify su Ubuntu 26.04 (atteso: fallisce su cmake)"
+    runs-on: ubuntu-26.04
+    steps:
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y git cmake gcc make
+      - name: Versione di cmake effettivamente installata
+        run: cmake --version
+      - run: git clone http://github.com/ammen99/uncrustify
+      - name: Compila uncrustify come fa ci.yaml
+        run: cd uncrustify && mkdir build && cd build && cmake ../ && make && cd ../../
